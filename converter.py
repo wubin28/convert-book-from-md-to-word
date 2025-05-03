@@ -260,7 +260,7 @@ def create_bidi_box(doc, title_text, content_lines, title_color='E36C09', conten
                 run = p_content.add_run(segment_text)
                 run.bold = is_bold
 
-def convert_markdown_to_docx(markdown_content, template_path, output_path):
+def convert_markdown_to_docx(markdown_content, template_path, output_path, markdown_file=None):
     """Convert markdown content to DOCX using the template as a base."""
     # Copy template to output file
     copy_template(template_path, output_path)
@@ -555,23 +555,44 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
         
         # Process image references
         if line.startswith('!['):
-            img_match = re.match(r'!\[(.*?)\]\((.*?)\)', line)
-            if img_match:
-                # Create a placeholder for the image
-                p = doc.add_paragraph()
-                p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-                p.add_run("[Image placeholder: " + img_match.group(2) + "]")
+            # Extract image information using regex
+            match = re.search(r'!\[(.*?)\]\((.*?)\)', line)
+            if match:
+                alt_text = match.group(1)
+                img_path = match.group(2)
+                
+                # Resolve the image path relative to the current script directory
+                # If the image path is relative, assume it's in the same directory
+                if not os.path.isabs(img_path):
+                    img_path = os.path.join(os.path.dirname(os.path.abspath(markdown_file)), img_path)
+                
+                try:
+                    # Check if image exists
+                    if os.path.exists(img_path):
+                        # Add image to document with reasonable width
+                        doc.add_picture(img_path, width=Inches(6))
+                        
+                        # Add caption with alt text if provided
+                        if alt_text:
+                            caption = doc.add_paragraph(alt_text)
+                            if styles['Caption']:
+                                try:
+                                    caption.style = styles['Caption']
+                                except:
+                                    caption.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                                    for run in caption.runs:
+                                        run.italic = True
+                                        run.font.size = Pt(10)
+                    else:
+                        # Add placeholder for missing image
+                        doc.add_paragraph(f"[Image not found: {img_path}]")
+                except Exception as e:
+                    # Handle any errors during image processing
+                    doc.add_paragraph(f"[Error adding image: {str(e)}]")
+            
             i += 1
-            
-            # Check for image caption
-            if i < len(lines) and re.match(r'^图\d+-\d+', lines[i]):
-                # Use add_paragraph_with_formatting to handle bold text in image caption
-                p = add_paragraph_with_formatting(doc, lines[i], styles['Caption'])
-                p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-                i += 1
-            
             continue
-        
+
         # Process notes (注意, 提示)
         if line.strip() in ["注意", "提示"]:
             p = doc.add_paragraph(line.strip())
@@ -655,8 +676,7 @@ def main():
     content = read_markdown_file(markdown_file)
     
     # Convert markdown to DOCX
-    convert_markdown_to_docx(content, template_path, output_path)
-    
+    convert_markdown_to_docx(content, template_path, output_path, markdown_file)    
     print(f"\nNote: The converter has made its best attempt to match the formatting.")
     print(f"      Please open '{output_path}' to verify the result.")
     print(f"      Text wrapped in ** markdown has been converted to bold formatting.")
