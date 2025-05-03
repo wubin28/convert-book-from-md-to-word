@@ -220,10 +220,9 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             segments = process_bold_text(line[2:])
             for segment_text, is_bold in segments:
                 run = p.add_run(segment_text)
-                # For headings, make all text bold, but ensure bold segments are emphasized
-                run.bold = True
-                if is_bold and hasattr(run, 'italic'):
-                    run.italic = True
+                # Only apply bold to segments marked with **
+                if is_bold:
+                    run.bold = True
             
             i += 1
             continue
@@ -240,9 +239,9 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             segments = process_bold_text(line[3:])
             for segment_text, is_bold in segments:
                 run = p.add_run(segment_text)
-                run.bold = True
-                if is_bold and hasattr(run, 'italic'):
-                    run.italic = True
+                # Only apply bold to segments marked with **
+                if is_bold:
+                    run.bold = True
             
             i += 1
             continue
@@ -259,9 +258,9 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             segments = process_bold_text(line[4:])
             for segment_text, is_bold in segments:
                 run = p.add_run(segment_text)
-                run.bold = True
-                if is_bold and hasattr(run, 'italic'):
-                    run.italic = True
+                # Only apply bold to segments marked with **
+                if is_bold:
+                    run.bold = True
             
             i += 1
             continue
@@ -278,9 +277,9 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             segments = process_bold_text(line[5:])
             for segment_text, is_bold in segments:
                 run = p.add_run(segment_text)
-                run.bold = True
-                if is_bold and hasattr(run, 'italic'):
-                    run.italic = True
+                # Only apply bold to segments marked with **
+                if is_bold:
+                    run.bold = True
             
             i += 1
             continue
