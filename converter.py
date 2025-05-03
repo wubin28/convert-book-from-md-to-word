@@ -80,33 +80,64 @@ def find_table_style(doc):
             continue
     return None
 
-def add_list_item(doc, text, is_bullet=True, number=None):
-    """Add a list item with proper formatting."""
+def add_bullet_list_item(doc, text, list_style=None):
+    """
+    Add a bullet list item with proper formatting using Word's native bullet points.
+    Properly handles bold text marked with **.
+    """
     p = doc.add_paragraph()
-    p.paragraph_format.left_indent = Inches(0.5)
-    p.paragraph_format.first_line_indent = Inches(-0.25)
+    
+    # Try to apply built-in bullet list style
+    try:
+        if list_style:
+            p.style = list_style
+        else:
+            # Use a style that's likely to be in most Word documents
+            p.style = 'List Bullet'
+    except:
+        # If built-in style fails, fall back to manual formatting
+        p.paragraph_format.left_indent = Inches(0.5)
+        p.paragraph_format.first_line_indent = Inches(-0.25)
     
     # Process bold markers in the text
     segments = process_bold_text(text)
     
-    if is_bullet:
-        prefix = "• "
-    else:
-        prefix = f"({number}) " if number else ""
+    # Add text segments with appropriate formatting
+    for segment_text, is_bold in segments:
+        run = p.add_run(segment_text)
+        run.bold = is_bold
     
-    # Add the prefix to the first segment
-    if segments:
-        first_segment = segments[0]
-        if first_segment[1]:  # If the first segment should be bold
-            run = p.add_run(prefix + first_segment[0])
-            run.bold = True
+    return p
+
+def add_numbered_list_item(doc, text, number=None, list_style=None):
+    """
+    Add a numbered list item with proper formatting.
+    Properly handles bold text marked with **.
+    """
+    p = doc.add_paragraph()
+    
+    # Try to apply built-in numbered list style
+    try:
+        if list_style:
+            p.style = list_style
         else:
-            run = p.add_run(prefix + first_segment[0])
-        
-        # Add remaining segments
-        for segment_text, is_bold in segments[1:]:
-            run = p.add_run(segment_text)
-            run.bold = is_bold
+            # Use a style that's likely to be in most Word documents
+            p.style = 'List Number'
+    except:
+        # If built-in style fails, fall back to manual formatting
+        p.paragraph_format.left_indent = Inches(0.5)
+        p.paragraph_format.first_line_indent = Inches(-0.25)
+        # If number is provided, add it manually
+        if number:
+            text = f"({number}) {text}"
+    
+    # Process bold markers in the text
+    segments = process_bold_text(text)
+    
+    # Add text segments with appropriate formatting
+    for segment_text, is_bold in segments:
+        run = p.add_run(segment_text)
+        run.bold = is_bold
     
     return p
 
@@ -180,6 +211,10 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
     for style_type in ['Heading1', 'Heading2', 'Heading3', 'Heading4', 'Caption', 
                       'Normal', 'No Spacing', 'Intense Quote', 'Quote']:
         styles[style_type] = get_style_name(doc, style_type)
+    
+    # Get list styles
+    bullet_list_style = get_style_name(doc, 'List Bullet')
+    number_list_style = get_style_name(doc, 'List Number')
     
     # Find a suitable table style
     table_style = find_table_style(doc)
@@ -370,8 +405,8 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 i += 1
             
             for item in items:
-                # Use add_list_item which now handles bold text
-                add_list_item(doc, item, is_bullet=True)
+                # Use new function to create native Word bullet points
+                add_bullet_list_item(doc, item, bullet_list_style)
             
             continue
         
@@ -387,8 +422,8 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 i += 1
             
             for idx, item in enumerate(items):
-                # Use add_list_item which now handles bold text
-                add_list_item(doc, item, is_bullet=False, number=numbers[idx])
+                # Use new function to create native Word numbered lists
+                add_numbered_list_item(doc, item, numbers[idx], number_list_style)
             
             continue
         
