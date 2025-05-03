@@ -6,6 +6,8 @@ from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.enum.style import WD_STYLE_TYPE
+from docx.oxml.ns import qn
+from docx.oxml import parse_xml
 
 def read_markdown_file(file_path):
     """Read content from a markdown file."""
@@ -80,6 +82,16 @@ def find_table_style(doc):
             continue
     return None
 
+def add_gray_background(paragraph):
+    """Add light gray background to a paragraph."""
+    try:
+        # Use light gray color (F5F5F5 is a very light gray)
+        shading_elm = parse_xml(r'<w:shd {} w:fill="F5F5F5"/>'.format(qn('w:val')))
+        paragraph._element.get_or_add_pPr().append(shading_elm)
+    except:
+        # If there's any error, just continue without adding background
+        pass
+
 def add_bullet_list_item(doc, text, list_style=None):
     """
     Add a bullet list item with proper formatting using Word's native bullet points.
@@ -109,35 +121,36 @@ def add_bullet_list_item(doc, text, list_style=None):
     
     return p
 
-def add_numbered_list_item(doc, text, number=None, list_style=None):
+def add_manual_numbered_item(doc, text, number=None):
     """
-    Add a numbered list item with proper formatting.
+    Add a numbered list item with manual formatting, preserving the original (X) format.
     Properly handles bold text marked with **.
     """
     p = doc.add_paragraph()
     
-    # Try to apply built-in numbered list style
-    try:
-        if list_style:
-            p.style = list_style
-        else:
-            # Use a style that's likely to be in most Word documents
-            p.style = 'List Number'
-    except:
-        # If built-in style fails, fall back to manual formatting
-        p.paragraph_format.left_indent = Inches(0.5)
-        p.paragraph_format.first_line_indent = Inches(-0.25)
-        # If number is provided, add it manually
-        if number:
-            text = f"({number}) {text}"
+    # Apply manual formatting with left indentation
+    p.paragraph_format.left_indent = Inches(0.5)
+    p.paragraph_format.first_line_indent = Inches(-0.25)
     
     # Process bold markers in the text
     segments = process_bold_text(text)
     
-    # Add text segments with appropriate formatting
-    for segment_text, is_bold in segments:
-        run = p.add_run(segment_text)
-        run.bold = is_bold
+    # Create the prefix with the original number format
+    prefix = f"({number}) " if number else ""
+    
+    # Add the first segment with the prefix
+    if segments:
+        first_segment = segments[0]
+        if first_segment[1]:  # If the first segment should be bold
+            run = p.add_run(prefix + first_segment[0])
+            run.bold = True
+        else:
+            run = p.add_run(prefix + first_segment[0])
+        
+        # Add remaining segments
+        for segment_text, is_bold in segments[1:]:
+            run = p.add_run(segment_text)
+            run.bold = is_bold
     
     return p
 
@@ -214,7 +227,6 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
     
     # Get list styles
     bullet_list_style = get_style_name(doc, 'List Bullet')
-    number_list_style = get_style_name(doc, 'List Number')
     
     # Find a suitable table style
     table_style = find_table_style(doc)
@@ -345,6 +357,9 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                     except:
                         pass
                 
+                # Add light gray background to code lines
+                add_gray_background(p)
+                
                 for run in p.runs:
                     run.font.name = 'Courier New'
                     run.font.size = Pt(9)
@@ -422,8 +437,8 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 i += 1
             
             for idx, item in enumerate(items):
-                # Use new function to create native Word numbered lists
-                add_numbered_list_item(doc, item, numbers[idx], number_list_style)
+                # Use the manual numbered list function to preserve original numbering
+                add_manual_numbered_item(doc, item, numbers[idx])
             
             continue
         
@@ -612,7 +627,9 @@ def main():
     print(f"\nNote: The converter has made its best attempt to match the formatting.")
     print(f"      Please open '{output_path}' to verify the result.")
     print(f"      Text wrapped in ** markdown has been converted to bold formatting.")
+    print(f"      Code blocks now have a light gray background for better readability.")
     print(f"      Special sections like '【避坑指南】' have been preserved with appropriate styling.")
+    print(f"      Numbered lists keep their original '(1)' formatting.")
 
 if __name__ == "__main__":
     main()
