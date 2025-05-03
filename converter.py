@@ -86,10 +86,84 @@ def add_list_item(doc, text, is_bullet=True, number=None):
     p.paragraph_format.left_indent = Inches(0.5)
     p.paragraph_format.first_line_indent = Inches(-0.25)
     
+    # Process bold markers in the text
+    segments = process_bold_text(text)
+    
     if is_bullet:
-        run = p.add_run("• " + text)
+        prefix = "• "
     else:
-        run = p.add_run(f"({number}) {text}" if number else f"{text}")
+        prefix = f"({number}) " if number else ""
+    
+    # Add the prefix to the first segment
+    if segments:
+        first_segment = segments[0]
+        if first_segment[1]:  # If the first segment should be bold
+            run = p.add_run(prefix + first_segment[0])
+            run.bold = True
+        else:
+            run = p.add_run(prefix + first_segment[0])
+        
+        # Add remaining segments
+        for segment_text, is_bold in segments[1:]:
+            run = p.add_run(segment_text)
+            run.bold = is_bold
+    
+    return p
+
+def process_bold_text(text):
+    """
+    Process text to identify bold sections marked with ** in Markdown.
+    Returns a list of tuples (text_segment, is_bold).
+    """
+    segments = []
+    
+    # Pattern to match **bold text**
+    pattern = r'\*\*(.*?)\*\*'
+    
+    # Find all occurrences of bold text
+    bold_matches = list(re.finditer(pattern, text))
+    
+    if not bold_matches:
+        # No bold text found, return the original text as not bold
+        return [(text, False)]
+    
+    # Process text with bold sections
+    last_end = 0
+    for match in bold_matches:
+        # Add the text before this bold section (if any)
+        if match.start() > last_end:
+            segments.append((text[last_end:match.start()], False))
+        
+        # Add the bold text without ** markers
+        bold_text = match.group(1)
+        segments.append((bold_text, True))
+        
+        last_end = match.end()
+    
+    # Add any remaining text after the last bold section
+    if last_end < len(text):
+        segments.append((text[last_end:], False))
+    
+    return segments
+
+def add_paragraph_with_formatting(doc, text, style=None):
+    """Add a paragraph with proper formatting for bold text marked with **."""
+    p = doc.add_paragraph()
+    
+    # Apply style if provided
+    if style:
+        try:
+            p.style = style
+        except:
+            pass
+    
+    # Process bold markers
+    segments = process_bold_text(text)
+    
+    # Add segments with appropriate formatting
+    for segment_text, is_bold in segments:
+        run = p.add_run(segment_text)
+        run.bold = is_bold
     
     return p
 
@@ -135,66 +209,79 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
         
         # Process headings
         if line.startswith('# '):  # Chapter title
-            p = doc.add_paragraph(line[2:])
+            p = doc.add_paragraph()
             if styles['Heading1']:
                 try:
                     p.style = styles['Heading1']
                 except:
-                    run = p.runs[0] if p.runs else p.add_run()
-                    run.bold = True
-                    run.font.size = Pt(16)
-            else:
-                run = p.runs[0] if p.runs else p.add_run()
+                    pass
+            
+            # Process bold text in headings
+            segments = process_bold_text(line[2:])
+            for segment_text, is_bold in segments:
+                run = p.add_run(segment_text)
+                # For headings, make all text bold, but ensure bold segments are emphasized
                 run.bold = True
-                run.font.size = Pt(16)
+                if is_bold and hasattr(run, 'italic'):
+                    run.italic = True
+            
             i += 1
             continue
         
         if line.startswith('## '):  # Section title
-            p = doc.add_paragraph(line[3:])
+            p = doc.add_paragraph()
             if styles['Heading2']:
                 try:
                     p.style = styles['Heading2']
                 except:
-                    run = p.runs[0] if p.runs else p.add_run()
-                    run.bold = True
-                    run.font.size = Pt(14)
-            else:
-                run = p.runs[0] if p.runs else p.add_run()
+                    pass
+            
+            # Process bold text in headings
+            segments = process_bold_text(line[3:])
+            for segment_text, is_bold in segments:
+                run = p.add_run(segment_text)
                 run.bold = True
-                run.font.size = Pt(14)
+                if is_bold and hasattr(run, 'italic'):
+                    run.italic = True
+            
             i += 1
             continue
         
         if line.startswith('### '):  # Subsection title
-            p = doc.add_paragraph(line[4:])
+            p = doc.add_paragraph()
             if styles['Heading3']:
                 try:
                     p.style = styles['Heading3']
                 except:
-                    run = p.runs[0] if p.runs else p.add_run()
-                    run.bold = True
-                    run.font.size = Pt(13)
-            else:
-                run = p.runs[0] if p.runs else p.add_run()
+                    pass
+            
+            # Process bold text in headings
+            segments = process_bold_text(line[4:])
+            for segment_text, is_bold in segments:
+                run = p.add_run(segment_text)
                 run.bold = True
-                run.font.size = Pt(13)
+                if is_bold and hasattr(run, 'italic'):
+                    run.italic = True
+            
             i += 1
             continue
         
         if line.startswith('#### '):  # Fourth level title
-            p = doc.add_paragraph(line[5:])
+            p = doc.add_paragraph()
             if styles['Heading4']:
                 try:
                     p.style = styles['Heading4']
                 except:
-                    run = p.runs[0] if p.runs else p.add_run()
-                    run.bold = True
-                    run.font.size = Pt(12)
-            else:
-                run = p.runs[0] if p.runs else p.add_run()
+                    pass
+            
+            # Process bold text in headings
+            segments = process_bold_text(line[5:])
+            for segment_text, is_bold in segments:
+                run = p.add_run(segment_text)
                 run.bold = True
-                run.font.size = Pt(12)
+                if is_bold and hasattr(run, 'italic'):
+                    run.italic = True
+            
             i += 1
             continue
         
@@ -211,19 +298,11 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             
             # Check for code listing title
             if i < len(lines) and re.match(r'^代码清单\d+-\d+', lines[i]):
-                p = doc.add_paragraph(lines[i])
-                if styles['Caption']:
-                    try:
-                        p.style = styles['Caption']
-                    except:
-                        run = p.runs[0] if p.runs else p.add_run()
-                        run.italic = True
-                else:
-                    run = p.runs[0] if p.runs else p.add_run()
-                    run.italic = True
+                # Use add_paragraph_with_formatting to handle bold text in code listing title
+                p = add_paragraph_with_formatting(doc, lines[i], styles['Caption'])
                 i += 1
             
-            # Add code block
+            # Add code block - no bold processing for code
             for code_line in code_lines:
                 p = doc.add_paragraph(code_line)
                 if styles['No Spacing']:
@@ -258,7 +337,7 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             # Style the table as a box
             cell = table.cell(0, 0)
             
-            # Process the 【避坑指南】 line
+            # Process the 【避坑指南】 line - this is already bold, no need for additional processing
             p = cell.paragraphs[0]
             run = p.add_run(line)
             run.bold = True
@@ -270,7 +349,12 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                     break
                 
                 if lines[i].strip():
-                    p = cell.add_paragraph(lines[i])
+                    # Handle bold text inside aside sections
+                    p = cell.add_paragraph()
+                    segments = process_bold_text(lines[i])
+                    for segment_text, is_bold in segments:
+                        run = p.add_run(segment_text)
+                        run.bold = is_bold
                 i += 1
             
             # Skip </aside> tag if present
@@ -287,7 +371,7 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 i += 1
             
             for item in items:
-                # Always use manual list formatting to avoid style type issues
+                # Use add_list_item which now handles bold text
                 add_list_item(doc, item, is_bullet=True)
             
             continue
@@ -304,7 +388,7 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 i += 1
             
             for idx, item in enumerate(items):
-                # Always use manual list formatting
+                # Use add_list_item which now handles bold text
                 add_list_item(doc, item, is_bullet=False, number=numbers[idx])
             
             continue
@@ -326,14 +410,8 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             
             # Check for table caption
             if i < len(lines) and lines[i].startswith('>') and '表' in lines[i]:
-                p = doc.add_paragraph(lines[i].strip('> '))
-                if styles['Caption']:
-                    try:
-                        p.style = styles['Caption']
-                    except:
-                        p.italic = True
-                else:
-                    p.italic = True
+                # Use add_paragraph_with_formatting to handle bold text in table caption
+                p = add_paragraph_with_formatting(doc, lines[i].strip('> '), styles['Caption'])
                 i += 1
             
             # Process table content
@@ -357,7 +435,18 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 
                 # Add header
                 for j, cell_text in enumerate(header_cells):
-                    table.cell(0, j).text = cell_text
+                    # Process bold text in table header cells
+                    cell = table.cell(0, j)
+                    p = cell.paragraphs[0]
+                    segments = process_bold_text(cell_text)
+                    
+                    # Clear existing text in the paragraph
+                    p.clear()
+                    
+                    # Add segments with appropriate formatting
+                    for segment_text, is_bold in segments:
+                        run = p.add_run(segment_text)
+                        run.bold = is_bold
                 
                 # Add data rows
                 for row_text in data_rows:
@@ -367,7 +456,18 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                     
                     row_cells = table.add_row().cells
                     for j, cell_text in enumerate(cells[:len(header_cells)]):
-                        row_cells[j].text = cell_text
+                        # Process bold text in table data cells
+                        cell = row_cells[j]
+                        p = cell.paragraphs[0]
+                        segments = process_bold_text(cell_text)
+                        
+                        # Clear existing text in the paragraph
+                        p.clear()
+                        
+                        # Add segments with appropriate formatting
+                        for segment_text, is_bold in segments:
+                            run = p.add_run(segment_text)
+                            run.bold = is_bold
             
             continue
         
@@ -383,14 +483,8 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
             
             # Check for image caption
             if i < len(lines) and re.match(r'^图\d+-\d+', lines[i]):
-                p = doc.add_paragraph(lines[i])
-                if styles['Caption']:
-                    try:
-                        p.style = styles['Caption']
-                    except:
-                        p.italic = True
-                else:
-                    p.italic = True
+                # Use add_paragraph_with_formatting to handle bold text in image caption
+                p = add_paragraph_with_formatting(doc, lines[i], styles['Caption'])
                 p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
                 i += 1
             
@@ -427,12 +521,14 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 cell = table.cell(0, 0)
                 
                 for note_line in note_content:
-                    if not cell.paragraphs[0].text:
-                        p = cell.paragraphs[0]
-                    else:
-                        p = cell.add_paragraph()
+                    # Process bold text in note content
+                    p = cell.add_paragraph()
+                    segments = process_bold_text(note_line)
                     
-                    p.add_run(note_line)
+                    for segment_text, is_bold in segments:
+                        run = p.add_run(segment_text)
+                        run.bold = is_bold
+                    
                     if styles['Quote']:
                         try:
                             p.style = styles['Quote']
@@ -443,12 +539,8 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
         
         # Process regular paragraphs
         if line.strip():
-            p = doc.add_paragraph(line)
-            if styles['Normal']:
-                try:
-                    p.style = styles['Normal']
-                except:
-                    pass
+            # Use the new function to handle bold text in regular paragraphs
+            p = add_paragraph_with_formatting(doc, line, styles['Normal'])
             i += 1
             continue
         
@@ -485,6 +577,7 @@ def main():
     
     print(f"\nNote: The converter has made its best attempt to match the formatting.")
     print(f"      Please open '{output_path}' to verify the result.")
+    print(f"      Text wrapped in ** markdown has been converted to bold formatting.")
     print(f"      Special sections like '【避坑指南】' have been preserved with appropriate styling.")
 
 if __name__ == "__main__":
