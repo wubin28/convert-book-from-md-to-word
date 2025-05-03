@@ -8,6 +8,8 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
 from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+from docx.oxml import OxmlElement
 
 def read_markdown_file(file_path):
     """Read content from a markdown file."""
@@ -86,11 +88,29 @@ def add_gray_background(paragraph):
     """Add light gray background to a paragraph."""
     try:
         # Use light gray color (F5F5F5 is a very light gray)
-        shading_elm = parse_xml(r'<w:shd {} w:fill="F5F5F5"/>'.format(qn('w:val')))
-        paragraph._element.get_or_add_pPr().append(shading_elm)
+        shading_xml = f'<w:shd {nsdecls("w")} w:fill="F5F5F5"/>'
+        shading_element = OxmlElement(shading_xml)
+        paragraph._element.get_or_add_pPr().append(shading_element)
     except:
         # If there's any error, just continue without adding background
         pass
+
+def set_cell_background(cell, color):
+    """Set cell background color using direct XML manipulation."""
+    # Create the shading element with the specified fill color
+    shading = OxmlElement('w:shd')
+    shading.set(qn('w:fill'), color)  # Set fill color
+    shading.set(qn('w:val'), 'clear')  # Clear any previous shading
+    
+    # Get or create the cell properties element
+    tcPr = cell._tc.get_or_add_tcPr()
+    
+    # Remove any existing shading
+    for s in tcPr.findall(qn('w:shd')):
+        tcPr.remove(s)
+    
+    # Add the new shading
+    tcPr.append(shading)
 
 def add_bullet_list_item(doc, text, list_style=None):
     """
@@ -210,6 +230,36 @@ def add_paragraph_with_formatting(doc, text, style=None):
         run.bold = is_bold
     
     return p
+
+def create_bidi_box(doc, title_text, content_lines, title_color='FF8C00', content_color='FFDAB9'):
+    """Create a styled box for the 避坑指南 section with orange background."""
+    # Create a table for the box (2 rows, 1 column)
+    table = doc.add_table(rows=2, cols=1)
+    
+    # Remove spacing between cells and borders
+    table.cell(0, 0).vertical_alignment = 1  # Center
+    table.cell(1, 0).vertical_alignment = 1  # Center
+    
+    # Set background colors
+    set_cell_background(table.cell(0, 0), title_color)  # Dark orange for title
+    set_cell_background(table.cell(1, 0), content_color)  # Light orange for content
+    
+    # Add the title (make it bold)
+    p = table.cell(0, 0).paragraphs[0]
+    run = p.add_run(title_text)
+    run.bold = True
+    
+    # Add the content with proper formatting for bold text
+    content_cell = table.cell(1, 0)
+    for line in content_lines:
+        if line.strip():
+            p = content_cell.add_paragraph()
+            segments = process_bold_text(line)
+            for segment_text, is_bold in segments:
+                run = p.add_run(segment_text)
+                run.bold = is_bold
+    
+    return table
 
 def convert_markdown_to_docx(markdown_content, template_path, output_path):
     """Convert markdown content to DOCX using the template as a base."""
@@ -375,36 +425,20 @@ def convert_markdown_to_docx(markdown_content, template_path, output_path):
                 else:
                     continue  # Skip malformed aside
             
-            # Create a box for the 【避坑指南】 section
-            table = doc.add_table(rows=1, cols=1)
-            if table_style:
-                try:
-                    table.style = table_style
-                except:
-                    pass
+            # Go through the content to collect all lines
+            i += 1  # Move past the header
+            content_lines = []
             
-            # Style the table as a box
-            cell = table.cell(0, 0)
-            
-            # Process the 【避坑指南】 line - this is already bold, no need for additional processing
-            p = cell.paragraphs[0]
-            run = p.add_run(line)
-            run.bold = True
-            i += 1
-            
-            # Process content inside the aside
             while i < len(lines):
                 if lines[i].strip() == "</aside>" or lines[i].strip().startswith("#") or "【避坑指南】" in lines[i]:
                     break
                 
                 if lines[i].strip():
-                    # Handle bold text inside aside sections
-                    p = cell.add_paragraph()
-                    segments = process_bold_text(lines[i])
-                    for segment_text, is_bold in segments:
-                        run = p.add_run(segment_text)
-                        run.bold = is_bold
+                    content_lines.append(lines[i])
                 i += 1
+            
+            # Create the styled box with orange backgrounds
+            create_bidi_box(doc, line, content_lines)
             
             # Skip </aside> tag if present
             if i < len(lines) and lines[i].strip() == "</aside>":
@@ -628,7 +662,7 @@ def main():
     print(f"      Please open '{output_path}' to verify the result.")
     print(f"      Text wrapped in ** markdown has been converted to bold formatting.")
     print(f"      Code blocks now have a light gray background for better readability.")
-    print(f"      Special sections like '【避坑指南】' have been preserved with appropriate styling.")
+    print(f"      Special sections like '【避坑指南】' now have orange backgrounds as requested.")
     print(f"      Numbered lists keep their original '(1)' formatting.")
 
 if __name__ == "__main__":
