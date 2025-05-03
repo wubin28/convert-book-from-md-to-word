@@ -244,10 +244,12 @@ def create_bidi_box(doc, title_text, content_lines, title_color='FF8C00', conten
     set_cell_background(table.cell(0, 0), title_color)  # Dark orange for title
     set_cell_background(table.cell(1, 0), content_color)  # Light orange for content
     
-    # Add the title (make it bold)
+    # Add the title (make it bold and WHITE)
     p = table.cell(0, 0).paragraphs[0]
     run = p.add_run(title_text)
     run.bold = True
+    # Set the font color to white
+    run.font.color.rgb = RGBColor(255, 255, 255)  # RGB value for white
     
     # Add the content with proper formatting for bold text
     content_cell = table.cell(1, 0)
@@ -662,7 +664,7 @@ def main():
     print(f"      Please open '{output_path}' to verify the result.")
     print(f"      Text wrapped in ** markdown has been converted to bold formatting.")
     print(f"      Code blocks now have a light gray background for better readability.")
-    print(f"      Special sections like '【避坑指南】' now have orange backgrounds as requested.")
+    print(f"      Special sections like '【避坑指南】' now have orange backgrounds with white title text as requested.")
     print(f"      Numbered lists keep their original '(1)' formatting.")
 
 if __name__ == "__main__":
