@@ -233,35 +233,32 @@ def add_paragraph_with_formatting(doc, text, style=None):
 
 def create_bidi_box(doc, title_text, content_lines, title_color='E36C09', content_color='FDE9D9'):
     """Create a styled box for the 避坑指南 section with orange background."""
-    # Create a table for the box (2 rows, 1 column)
-    table = doc.add_table(rows=2, cols=1)
+    # Create the title paragraph with dark orange background
+    p_title = doc.add_paragraph()
+    p_title._element.get_or_add_pPr().append(
+        parse_xml(f'<w:shd {nsdecls("w")} w:fill="{title_color}" w:val="clear"/>')
+    )
     
-    # Remove spacing between cells and borders
-    table.cell(0, 0).vertical_alignment = 1  # Center
-    table.cell(1, 0).vertical_alignment = 1  # Center
-    
-    # Set background colors
-    set_cell_background(table.cell(0, 0), title_color)  # Dark orange for title
-    set_cell_background(table.cell(1, 0), content_color)  # Light orange for content
-    
-    # Add the title (make it bold and WHITE)
-    p = table.cell(0, 0).paragraphs[0]
-    run = p.add_run(title_text)
+    # Add the title text (make it bold and WHITE)
+    run = p_title.add_run(title_text)
     run.bold = True
     # Set the font color to white
     run.font.color.rgb = RGBColor(255, 255, 255)  # RGB value for white
     
     # Add the content with proper formatting for bold text
-    content_cell = table.cell(1, 0)
     for line in content_lines:
         if line.strip():
-            p = content_cell.add_paragraph()
+            # Create paragraph with light orange background
+            p_content = doc.add_paragraph()
+            p_content._element.get_or_add_pPr().append(
+                parse_xml(f'<w:shd {nsdecls("w")} w:fill="{content_color}" w:val="clear"/>')
+            )
+            
+            # Process and add text with bold formatting
             segments = process_bold_text(line)
             for segment_text, is_bold in segments:
-                run = p.add_run(segment_text)
+                run = p_content.add_run(segment_text)
                 run.bold = is_bold
-    
-    return table
 
 def convert_markdown_to_docx(markdown_content, template_path, output_path):
     """Convert markdown content to DOCX using the template as a base."""
