@@ -231,7 +231,7 @@ def add_paragraph_with_formatting(doc, text, style=None):
     
     return p
 
-def create_bidi_box(doc, title_text, content_lines, title_color='FF8C00', content_color='FFDAB9'):
+def create_bidi_box(doc, title_text, content_lines, title_color='E36C09', content_color='FDE9D9'):
     """Create a styled box for the 避坑指南 section with orange background."""
     # Create a table for the box (2 rows, 1 column)
     table = doc.add_table(rows=2, cols=1)
